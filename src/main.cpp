@@ -6,134 +6,218 @@
  */
 #include "Arduino.h"
 #include "WiFi.h"
-//#include "Button.h"
 #include "OneButton.h"
-#include <FastLED.h>
+#include "Btm.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_NeoMatrix.h>
+#include <Adafruit_NeoPixel.h>
+#include <Fonts/TomThumb.h>   // 字體一
+#include "RTClib.h"
+#include <Wire.h>
+
+
 #define BASE_BTN_COUNT        6
 
-//LED矩阵宽
 #define MATRIX_WIDTH          32
-//LED矩阵高
 #define MATRIX_HEIGHT         8
-#define NUM_LEDS              256
-//点阵屏驱动引脚
+
+#define NUM_LEDS              256////点阵屏驱动引脚
+
 #define MATRIX_LED_PIN        32
 
-//屏幕最大亮度
-#define MATRIX_MAX_BRIGHTNESS 48
+#define MATRIX_MAX_BRIGHTNESS 48//屏幕最大亮度
+
+#define BLACK    0x0000
+#define BLUE     0xF800
+#define RED      0x001F
+#define GREEN    0x07E0
+#define CYAN     0xFFE0
+#define MAGENTA  0xF81F
+#define YELLOW   0x07FF
+#define WHITE    0xFFFF
+
+const char ssid[]="WI-FI_2.4G"; //修改為你家的WiFi網路名稱
+const char pwd[]="hsiu112358"; //修改為你家的WiFi密碼
+
 
 uint8_t btnPins[BASE_BTN_COUNT] = {25,26,12,14,27,13};
-
-//Button* buttons[BASE_BTN_COUNT];
-
-
-
-// Setup a new OneButton on pin A1.  
-OneButton button1(25, true);
-// Setup a new OneButton on pin A2.  
-OneButton button2(26, true);
-
-void click1() {
-  Serial.println("Button 1 click.");
-} // click1
+Btm cv(btnPins);
+RTC_Micros rtc;
 
 
-// This function will be called when the button1 was pressed 2 times in a short timeframe.
-void doubleclick1() {
-  Serial.println("Button 1 doubleclick.");
-} // doubleclick1
-
-
-// This function will be called once, when the button1 is pressed for a long time.
-void longPressStart1() {
-  Serial.println("Button 1 longPress start");
-} // longPressStart1
-
-
-// This function will be called often, while the button1 is pressed for a long time.
-void longPress1() {
-  Serial.println("Button 1 longPress...");
-} // longPress1
-
-
-// This function will be called once, when the button1 is released after beeing pressed for a long time.
-void longPressStop1() {
-  Serial.println("Button 1 longPress stop");
-} // longPressStop1
-
-
-// ... and the same for button 2:
-
-void click2() {
-  Serial.println("Button 2 click.");
-} // click2
-
-
-void doubleclick2() {
-  Serial.println("Button 2 doubleclick.");
-} // doubleclick2
-
-
-void longPressStart2() {
-  Serial.println("Button 2 longPress start");
-} // longPressStart2
-
-
-void longPress2() {
-  Serial.println("Button 2 longPress...");
-} // longPress2
-
-void longPressStop2() {
-  Serial.println("Button 2 longPress stop");
-} // longPressStop2
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(MATRIX_WIDTH, MATRIX_HEIGHT, MATRIX_LED_PIN,
+  NEO_MATRIX_TOP     + NEO_MATRIX_LEFT +
+  NEO_MATRIX_ZIGZAG + NEO_MATRIX_PROGRESSIVE,
+  NEO_GBR            + NEO_KHZ800);
 
 
 
 
 
-CRGB leds[MATRIX_WIDTH*MATRIX_HEIGHT];
+//int i;
+
+/// @brief  adjust Time ///
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 28800;//格林威治時間,一格3600,GMT+8就是8*3600=28800
+const int   daylightOffset_sec = 0;
+uint8_t now_month;
+
+void adjust_time(){
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Fail to obtain time from ntp.");
+    return;
+  }
+  rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+  now_month=timeinfo.tm_mon + 1;
+}
 
 
 
+
+
+
+/// @brief //////////////////
+
+void show_time(){
+  DateTime now = rtc.now();
+  char timeChar[9];
+  if (now_month!=now.month()){
+    adjust_time();
+  }
+
+  
+  //sprintf(timeChar, "%02d", i%32);
+  
+  /*time
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(' ');
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println();*/ 
+
+
+  /*Screen test
+  matrix.drawPixel(i%32,(i/32)%8,CYAN);
+  i++;*/
+  sprintf(timeChar, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+  
+  
+  matrix.setTextColor(matrix.Color(255, 0, 0));
+  matrix.setCursor(2, 5);
+  matrix.print(timeChar);
+  for (uint8_t x=2;x<29;x+=4){
+    if (x/4==now.dayOfTheWeek()){
+      matrix.drawLine(x,7,x+2,7,GREEN);
+    }
+    else{
+    matrix.drawLine(x,7,x+2,7,matrix.Color(150, 0, 0));
+    }
+  }
+  
+  matrix.show();
+}
+
+
+
+/////////////////////
+uint8_t maxBrightness=40;
 void setup()
 {
-    Serial.begin(9600);
+  Serial.begin(9600);
+  Wire.begin();
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
-    // Set WiFi to station mode and disconnect from an AP if it was previously connected
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(100);
-    Serial.println("Starting TwoButtons...");
+  
 
-    // link the button 1 functions.
-    button1.attachClick(click1);
-    button1.attachDoubleClick(doubleclick1);
-    button1.attachLongPressStart(longPressStart1);
-    button1.attachLongPressStop(longPressStop1);
-    button1.attachDuringLongPress(longPress1);
+  // Set WiFi to station mode and disconnect from an AP if it was previously connected
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid,pwd);
+  Serial.print("WiFi connecting"); 
+  //當WiFi連線時會回傳WL_CONNECTED，因此跳出迴圈時代表已成功連線
+  for (uint8_t i=0;i<8;i++){
+    if (WiFi.status()==WL_CONNECTED){
+      Serial.println("/n");
+      Serial.print("IP位址:");
+      Serial.println(WiFi.localIP()); //讀取IP位址
+      Serial.print("WiFi RSSI:");
+      Serial.println(WiFi.RSSI()); //讀取WiFi強度
+      adjust_time();
+      break;
+    }
+    Serial.print(".");
+    delay(500);   
+  }
+  
+  
+  
+    
 
-    // link the button 2 functions.
-    button2.attachClick(click2);
-    button2.attachDoubleClick(doubleclick2);
-    button2.attachLongPressStart(longPressStart2);
-    button2.attachLongPressStop(longPressStop2);
-    button2.attachDuringLongPress(longPress2);
-
-    FastLED.addLeds<WS2812Controller800Khz,MATRIX_LED_PIN, GRB>((CRGB* )leds,MATRIX_WIDTH*MATRIX_HEIGHT);
-     FastLED.setBrightness(MATRIX_MAX_BRIGHTNESS);
+    
+  // Init matrix
+  matrix.begin();
+  matrix.setTextWrap(false);
+  matrix.setBrightness(maxBrightness);
+  matrix.setFont(&TomThumb);
+  matrix.setTextSize(1);
 
 
-    Serial.println("Setup done");
+
+
+
+  Serial.println("Setup done");
+    //i=0;
+}
+
+
+void turnoff(){
+  matrix.setBrightness(0);
+  Serial.println("off");
+}
+void bUp(){
+  maxBrightness=maxBrightness>60?100:maxBrightness+20;
+  
+  matrix.setBrightness(maxBrightness);
+  Serial.println("up");
+}
+void bDown(){
+  maxBrightness=maxBrightness<40?0:maxBrightness-20;
+  matrix.setBrightness(maxBrightness);
+  Serial.println("down");
 }
 
 void loop()
 {
-  button1.tick();
-  button2.tick();
-  fill_solid(leds, NUM_LEDS, CRGB(0, 255, 0)); // 设置所有LED灯为绿色
-  FastLED.show(); // 显示所有LED灯
+  cv.renew();
+  cv.OkBtm.attachLongPressStart(turnoff);
+  cv.UpBtm.attachClick(bUp);
+  cv.DownBtm.attachClick(bDown);
+  matrix.fillScreen(0);
+  show_time();
+  
+  
+  
 
 
   // Wait a bit before scanning again
-    delay(10);
+    //delay(10);
+  delay(200);
+
+
+  
 }
+
+
+
+
+
+
+ 
