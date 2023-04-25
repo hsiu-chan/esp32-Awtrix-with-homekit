@@ -4,4 +4,5 @@
 
 - [x] GFX
 - [x] 自動對時
-- [ ] 接入 homekit
+- [x] 接入 homekit，調RGB
+  - [Homespan](https://github.com/HomeSpan/HomeSpan) 
