@@ -143,7 +143,7 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
       b = (x + m) * 255;
   }
     
-    /////////////////////////////
+  /////////////////////////////
 
     *main_color=HexColor(r,g,b);
     return(true);  
@@ -241,6 +241,7 @@ void loop()
 
 
   matrix.show();
+  sleep(200);
   
   
 
