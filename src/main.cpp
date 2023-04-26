@@ -81,16 +81,14 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
   Characteristic::Hue H{0,true};
   Characteristic::Saturation S{0,true};
   Characteristic::Brightness L{100,true};
-  Adafruit_NeoMatrix* matrix;
   uint8_t* maxBrightness;
   uint16_t* main_color;
 
   
-  Matrix_RGB(Adafruit_NeoMatrix* matrix, uint8_t w, uint8_t h,uint8_t* maxBrightness, uint16_t* main_color
+  Matrix_RGB(uint8_t w, uint8_t h,uint8_t* maxBrightness, uint16_t* main_color
 ) : Service::LightBulb(){
 
     L.setRange(5,100,1);                      // sets the range of the Brightness to be from a min of 5%, to a max of 100%, in steps of 1%
-    this->matrix=matrix;
     this->maxBrightness=maxBrightness;
     this->main_color=main_color;
     update();                                 // manually call update() to set pixel with restored initial values
@@ -148,7 +146,6 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
     /////////////////////////////
 
     *main_color=HexColor(r,g,b);
-    (*matrix).setBrightness(*maxBrightness*p);  
     return(true);  
   }
 };
@@ -198,7 +195,7 @@ void setup()
   homeSpan.begin(Category::Lighting,"HomeSpan Lighting");
   SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
   SPAN_ACCESSORY("Matrix_RGB");
-    new Matrix_RGB(&matrix,MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
+    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
  
 
   
@@ -227,6 +224,8 @@ void loop()
   
   homeSpan.poll();
   matrix.setTextColor(main_color);
+  matrix.setBrightness(maxBrightness);  
+
 
 
   matrix.setCursor(2, 5);
