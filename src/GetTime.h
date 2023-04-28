@@ -5,7 +5,7 @@
 class Get_time
 {
 private:
-    uint8_t now_month;
+    uint8_t now_day;
     const char* ntpServer = "pool.ntp.org"; 
     long  gmtOffset_sec;
     int   daylightOffset_sec;
@@ -23,3 +23,7 @@ public:
     char* show_time();
     uint8_t show_day_of_week(){return rtc.now().dayOfTheWeek();};
 };
+
+
+
+

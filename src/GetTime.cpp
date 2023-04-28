@@ -16,13 +16,13 @@ void Get_time::adjust_time(){
     return;
   }
   rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
-  now_month=timeinfo.tm_mon + 1;
+  now_day=timeinfo.tm_mday;
 }
 
 char* Get_time::show_time(){
   DateTime now = rtc.now();
   
-  if (now_month!=now.month()){
+  if (now_day!=now.day()){
     adjust_time();
   }
 

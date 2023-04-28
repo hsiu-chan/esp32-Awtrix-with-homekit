@@ -1,7 +1,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
-#include <Matrix.h>
+/*#include <Matrix.h>
 
 
 Matrix::Matrix(uint8_t w, uint8_t h, uint8_t pin){
@@ -13,3 +13,4 @@ Matrix::Matrix(uint8_t w, uint8_t h, uint8_t pin){
   NEO_MATRIX_ZIGZAG + NEO_MATRIX_PROGRESSIVE,
   NEO_GBR            + NEO_KHZ800);
 }
+*/

@@ -4,6 +4,7 @@
 
 
 #include "WiFi.h"
+//#include <WebServer.h>
 #include "OneButton.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
@@ -26,7 +27,7 @@
 
 #define MATRIX_LED_PIN        32
 
-#define MATRIX_MAX_BRIGHTNESS 48//屏幕最大亮度
+#define MATRIX_MAX_BRIGHTNESS 70//屏幕最大亮度
 
 #define BLACK    0x0000
 #define BLUE     0xF800
@@ -37,10 +38,18 @@
 #define YELLOW   0x07FF
 #define WHITE    0xFFFF
 
+
 const char ssid[]="WI-FI_2.4G"; //修改为你家的WiFi网络名称
 const char pwd[]="hsiu112358"; //修改为你家的WiFi密码
 
+/// ICONS //////
+const uint8_t home_icon[] ={
+0x04, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x6c, 0xa0, 0x00, 0x80, 0xc6, 0xae, 0xe6, 0xaa, 0x54, 0xea, 0xea, 0xa3, 0x44, 0xaa, 0xac, 0xca, 0x7c, 0xae, 0xa6, 0xab, 0x00, 0x00, 0x00, 0x00
+  };
 
+
+
+//////////////////
 uint8_t btnPins[BASE_BTN_COUNT] = {25,26,12,14,27,13};
 Btm cv(btnPins); //按钮们
 Get_time gettime;
@@ -54,6 +63,10 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(MATRIX_WIDTH, MATRIX_HEIGHT, MATR
 uint8_t maxBrightness=MATRIX_MAX_BRIGHTNESS;
 
 uint16_t main_color;
+
+
+//WebServer server(80);
+
 
 /// 按鈕 //////////////////
 
@@ -75,6 +88,22 @@ uint16_t main_color;
 uint16_t HexColor(uint8_t r, uint8_t g, uint8_t b) {
   return ((uint16_t)(r & 0xF8) << 8) | ((uint16_t)(g & 0xFC) << 3) | (b >> 3);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////
 struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED Strand (e.g. NeoPixel)
  
   Characteristic::On power{0,true};
@@ -151,6 +180,51 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
 };
 ////////////////
 
+
+
+
+
+String write_ssid = "iot";
+String write_password = "chosemaker";
+int statusCode;
+String content;
+String room_id = "";
+
+/*void createWebServer(){
+
+    server.on("/uid", []() {
+        content = "<!DOCTYPE HTML>\r\n<html>";
+        content += "<p>";
+        content += "<ol>";
+        content += room_id;
+        content += "</ol>";
+        content += "</p><form method='get' action='setuid'><label>UID</label><input name='uid' length=64><input type='submit'></form>";
+        content += "</html>";
+        server.send(200, "text/html", content);
+    });
+ 
+    server.on("/setuid", []() {
+        room_id = server.arg("uid");    
+        if (room_id.length() > 0) {
+          Serial.println("html uid:");
+          Serial.println(room_id);
+          content = "{\"Success\"}";
+          statusCode = 200;
+        } else {
+          content = "{\"Error\":\"404 not found\"}";
+          statusCode = 404;
+          Serial.println("Sending 404");
+        }
+        server.send(statusCode, "application/json", content);
+    });
+ 
+}*/
+
+
+
+
+
+
 void setup()
 {
   Serial.begin(9600);
@@ -165,19 +239,30 @@ void setup()
   matrix.setBrightness(40);
   matrix.setFont(&TomThumb);
   matrix.setTextSize(1);
+  
 
   Serial.print("Matrix Setup done");
 
   
-
-  // Set WiFi to station mode and disconnect from an AP if it was previously connected
+  /////////////homeSpan////////
+  matrix.setCursor(2, 6);
+  matrix.fill(0);
+  //matrix.print("HomeSpan");
   
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid,pwd);
-  Serial.print("WiFi connecting"); 
-  matrix.setCursor(2, 5);
-  matrix.print("connecting...");
-  //当WiFi连接时会返回WL_CONNECTED，因此跳出循环时代表已成功连接
+  matrix.drawBitmap(0,0,home_icon,MATRIX_WIDTH,MATRIX_HEIGHT,HexColor(255,90,2),HexColor(0,0,0));
+
+  matrix.show();
+  //matrix.drawPixel()
+
+  homeSpan.begin(Category::Lighting,"HomeSpan Lighting");
+  SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
+  SPAN_ACCESSORY("Matrix_RGB");
+    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
+
+
+
+  ////////////////////////////////
+
   for (uint8_t i=0;i<8;i++){
     if (WiFi.status()==WL_CONNECTED){
       Serial.println("/n");
@@ -191,11 +276,10 @@ void setup()
     Serial.print(".");
     delay(500);   
   }
-  /////////////homeSpan////////
-  homeSpan.begin(Category::Lighting,"HomeSpan Lighting");
-  SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
-  SPAN_ACCESSORY("Matrix_RGB");
-    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
+
+  //createWebServer();
+
+
  
 
   
@@ -211,25 +295,24 @@ void setup()
 
 
 
-
-
 void loop()
 {
-  cv.renew();
+  /*cv.renew();
   cv.OkBtm.attachLongPressStart(turnoff);
   cv.UpBtm.attachClick(bUp);
-  cv.DownBtm.attachClick(bDown);
-  
-  matrix.fillScreen(0);//清空 
+  cv.DownBtm.attachClick(bDown);*/
+
   
   homeSpan.poll();
   matrix.setTextColor(main_color);
   matrix.setBrightness(maxBrightness);  
 
+  matrix.fillScreen(0);//清空
 
-
-  matrix.setCursor(2, 5);
+  matrix.setCursor(2, 6);
   matrix.print(gettime.show_time());
+  
+
   for (uint8_t x=2;x<29;x+=4){
     if (x/4==gettime.show_day_of_week()){ //now.dayOfTheWeek()
       matrix.drawLine(x,7,x+2,7,HexColor(0,255,0));
@@ -238,10 +321,23 @@ void loop()
     matrix.drawLine(x,7,x+2,7,main_color);
     }
   }
+  
+  
+  
+  
+   
+  
+
+
+
+
+  
 
 
   matrix.show();
-  sleep(200);
+
+  //server.handleClient();
+  //sleep(200);
   
   
 
