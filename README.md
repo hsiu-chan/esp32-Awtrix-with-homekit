@@ -8,7 +8,7 @@ esp32 的像素鐘，硬件來自[yinbaiyuan](https://github.com/yinbaiyuan)，[
 - [x] 接入 homekit，RGB調光
   - [Homespan](https://github.com/HomeSpan/HomeSpan) 
     - [UserGuide](https://github.com/HomeSpan/HomeSpan/blob/master/docs/UserGuide.md)
-- [ ] 讓 Homespan 用戶功能正常。。。
+- [ ] 讓 Homespan 用戶功能正常
   - 目前只能用命令行配網
   - [ ] Webserver 設置
 
