@@ -11,3 +11,5 @@ esp32 的像素鐘，硬件來自[yinbaiyuan](https://github.com/yinbaiyuan)，[
   - 目前只能用命令行配網
   - [ ] Webserver 設置
 
+# 畫LED Matrix
+![]{paste_src/2023-04-30-01-49-21.png}
