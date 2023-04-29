@@ -39,8 +39,6 @@
 #define WHITE    0xFFFF
 
 
-const char ssid[]="WI-FI_2.4G"; //修改为你家的WiFi网络名称
-const char pwd[]="hsiu112358"; //修改为你家的WiFi密码
 
 /// ICONS //////
 const uint8_t home_icon[] ={
