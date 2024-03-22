@@ -12,7 +12,7 @@
 #include <Fonts/TomThumb.h>   // 字体一
 #include <Wire.h>
 #include "HomeSpan.h"         // HomeSpan sketches always begin by including the HomeSpan library
-
+#include "ColorConverter.h"
 ///////
 
 //////
@@ -37,7 +37,8 @@
 #define MAGENTA  0xF81F
 #define YELLOW   0x07FF
 #define WHITE    0xFFFF
-
+const char* ssid = "WI-FI_2.4G";
+const char* password = "hsiu112358";
 
 
 /// ICONS //////
@@ -61,6 +62,8 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(MATRIX_WIDTH, MATRIX_HEIGHT, MATR
 uint8_t maxBrightness=MATRIX_MAX_BRIGHTNESS;
 
 uint16_t main_color;
+uint16_t week_color;
+
 
 
 //WebServer server(80);
@@ -83,9 +86,6 @@ uint16_t main_color;
 
 /////////////////////
 
-uint16_t HexColor(uint8_t r, uint8_t g, uint8_t b) {
-  return ((uint16_t)(r & 0xF8) << 8) | ((uint16_t)(g & 0xFC) << 3) | (b >> 3);
-}
 
 
 
@@ -129,50 +129,48 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
     
   float h=H.getNewVal<float>();       
   float s=S.getNewVal<float>()/100;       
-  float l=L.getNewVal<float>()/200;       
+  float l=L.getNewVal<float>()/100;       
 
-  int r,g,b;
-
-  // C++ Convert HSL to RGB
-
-  // Implement HSL to RGB conversion here...
-
-  // C++ implementation of HSL to RGB conversion
-  // Algorithm source: https://en.wikipedia.org/wiki/HSL_and_HSV#HSL_to_RGB_alternative
-
-  float c = (1 - abs(2 * l - 1)) * s;
-  float x = c * (1 - abs(fmod(h / 60.0, 2) - 1));
-  float m = l - c / 2;
-
-  if (h < 60) {
-      r = (c + m) * 255;
-      g = (x + m) * 255;
-      b = m * 255;
-  } else if (h < 120) {
-      r = (x + m) * 255;
-      g = (c + m) * 255;
-      b = m * 255;
-  } else if (h < 180) {
-      r = m * 255;
-      g = (c + m) * 255;
-      b = (x + m) * 255;
-  } else if (h < 240) {
-      r = m * 255;
-      g = (x + m) * 255;
-      b = (c + m) * 255;
-  } else if (h < 300) {
-      r = (x + m) * 255;
-      g = m * 255;
-      b = (c + m) * 255;
-  } else {
-      r = (c + m) * 255;
-      g = m * 255;
-      b = (x + m) * 255;
-  }
-    
   /////////////////////////////
 
-    *main_color=HexColor(r,g,b);
+    *main_color=hsv2hex(h,s,l);
+    return(true);  
+  }
+};
+
+
+struct Week_day : Service::LightBulb {      // Addressable single-wire RGB LED Strand (e.g. NeoPixel)
+ 
+  Characteristic::On power{0,true};
+  Characteristic::Hue H{0,true};
+  Characteristic::Saturation S{0,true};
+  Characteristic::Brightness L{100,true};
+  uint8_t* maxBrightness;
+  uint16_t* main_color;
+
+  
+  Week_day(uint8_t w, uint8_t h,uint8_t* maxBrightness, uint16_t* main_color
+) : Service::LightBulb(){
+
+    L.setRange(5,100,1);                      // sets the range of the Brightness to be from a min of 5%, to a max of 100%, in steps of 1%
+    this->maxBrightness=maxBrightness;
+    this->main_color=main_color;
+    update();                                 // manually call update() to set pixel with restored initial values
+  }
+
+  boolean update() override {
+
+    int p=power.getNewVal();
+    //*maxBrightness *= p;
+    
+    
+  float h=H.getNewVal<float>();       
+  float s=S.getNewVal<float>()/100;       
+  float l=L.getNewVal<float>()/100;       
+
+  /////////////////////////////
+
+    *main_color=hsv2hex(h,s,l);
     return(true);  
   }
 };
@@ -182,11 +180,11 @@ struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED
 
 
 
-String write_ssid = "iot";
+/*String write_ssid = "iot";
 String write_password = "chosemaker";
 int statusCode;
 String content;
-String room_id = "";
+String room_id = "";*/
 
 /*void createWebServer(){
 
@@ -252,11 +250,14 @@ void setup()
   matrix.show();
   //matrix.drawPixel()
 
-  homeSpan.begin(Category::Lighting,"HomeSpan Lighting");
+  homeSpan.begin(Category::Lighting,"陳時鐘");
   SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
-  SPAN_ACCESSORY("Matrix_RGB");
+  SPAN_ACCESSORY("MainColor");
     new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
+  SPAN_ACCESSORY("WeekDay");
+    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&week_color);
 
+  homeSpan.setWifiCredentials(ssid,password);
 
 
   ////////////////////////////////
@@ -295,10 +296,7 @@ void setup()
 
 void loop()
 {
-  /*cv.renew();
-  cv.OkBtm.attachLongPressStart(turnoff);
-  cv.UpBtm.attachClick(bUp);
-  cv.DownBtm.attachClick(bDown);*/
+
 
   
   homeSpan.poll();
@@ -313,22 +311,13 @@ void loop()
 
   for (uint8_t x=2;x<29;x+=4){
     if (x/4==gettime.show_day_of_week()){ //now.dayOfTheWeek()
-      matrix.drawLine(x,7,x+2,7,HexColor(0,255,0));
+      matrix.drawLine(x,7,x+2,7,week_color);
     }
     else{
     matrix.drawLine(x,7,x+2,7,main_color);
     }
   }
   
-  
-  
-  
-   
-  
-
-
-
-
   
 
 
