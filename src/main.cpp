@@ -6,6 +6,8 @@
 #include "WiFi.h"
 //#include <WebServer.h>
 #include "OneButton.h"
+#include <WiFiClient.h>
+#include <WebServer.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
@@ -37,9 +39,12 @@
 #define MAGENTA  0xF81F
 #define YELLOW   0x07FF
 #define WHITE    0xFFFF
-const char* ssid = "WI-FI_2.4G";
-const char* password = "hsiu112358";
+//const char* ssid = "WI-FI_2.4G";
+//const char* password = "hsiu112358";
 
+
+//const char* ssid = "YourWiFiSSID";  // 預設的 Wi-Fi SSID
+//const char* password = "password"; // 預設的 Wi-Fi 密碼
 
 /// ICONS //////
 const uint8_t home_icon[] ={
@@ -85,21 +90,6 @@ uint16_t week_color;
   }
 
 /////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //////////////
 struct Matrix_RGB : Service::LightBulb {      // Addressable single-wire RGB LED Strand (e.g. NeoPixel)
@@ -176,45 +166,59 @@ struct Week_day : Service::LightBulb {      // Addressable single-wire RGB LED S
 };
 ////////////////
 
+WebServer server(80);
+void handleRoot();
+void handleSetWiFi();
+
+void setupMode(){
+  Serial.println("");
+  Serial.println("Failed to connect to WiFi.");
+  Serial.println("Entering setup mode...");
+
+  matrix.fill(RED);
+  matrix.show();
+
+
+  // 停用原有的 Wi-Fi 連線
+  WiFi.disconnect(true);
+
+
+  // 開啟 AP 供用戶設定
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("ESP32Setup", "12345678");
+
+  Serial.println("Setup mode activated");
+
+  // 開啟 Web 伺服器
+  server.on("/", handleRoot);
+  server.on("/setwifi", handleSetWiFi);
+
+  server.begin();
+}
+
+void handleRoot() {
+  server.send(200, "text/html", "<form action='/setwifi' method='POST'>SSID:<input type='text' name='ssid'><br>Password:<input type='password' name='password'><br><input type='submit'></form>");
+}
+
+void handleSetWiFi() {
+  String ssid = server.arg("ssid");
+  String password = server.arg("password");
+
+  // 在這裡可以儲存用戶輸入的 Wi-Fi 資訊
+  // 然後連接到指定的 Wi-Fi
+  WiFi.begin(ssid.c_str(), password.c_str());
+  homeSpan.setWifiCredentials(ssid.c_str(),password.c_str());
+  // 將連線狀態回傳給用戶端
+  server.send(200, "text/plain", "Wi-Fi settings updated. Restart device to connect to new network.");
+  // 等待一段時間以確保訊息已發送
+  delay(1000);
+
+  // 重新啟動 ESP32
+  ESP.restart();
+}
 
 
 
-
-/*String write_ssid = "iot";
-String write_password = "chosemaker";
-int statusCode;
-String content;
-String room_id = "";*/
-
-/*void createWebServer(){
-
-    server.on("/uid", []() {
-        content = "<!DOCTYPE HTML>\r\n<html>";
-        content += "<p>";
-        content += "<ol>";
-        content += room_id;
-        content += "</ol>";
-        content += "</p><form method='get' action='setuid'><label>UID</label><input name='uid' length=64><input type='submit'></form>";
-        content += "</html>";
-        server.send(200, "text/html", content);
-    });
- 
-    server.on("/setuid", []() {
-        room_id = server.arg("uid");    
-        if (room_id.length() > 0) {
-          Serial.println("html uid:");
-          Serial.println(room_id);
-          content = "{\"Success\"}";
-          statusCode = 200;
-        } else {
-          content = "{\"Error\":\"404 not found\"}";
-          statusCode = 404;
-          Serial.println("Sending 404");
-        }
-        server.send(statusCode, "application/json", content);
-    });
- 
-}*/
 
 
 
@@ -239,8 +243,12 @@ void setup()
 
   Serial.print("Matrix Setup done");
 
+
+
   
-  /////////////homeSpan////////
+
+  
+  /////////////matrix////////
   matrix.setCursor(2, 6);
   matrix.fill(0);
   //matrix.print("HomeSpan");
@@ -250,41 +258,56 @@ void setup()
   matrix.show();
   //matrix.drawPixel()
 
-  homeSpan.begin(Category::Lighting,"陳時鐘");
-  SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
-  SPAN_ACCESSORY("MainColor");
-    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
-  SPAN_ACCESSORY("WeekDay");
-    new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&week_color);
+  
+  
+  // 初始化 Wi-Fi 模式
+  WiFi.mode(WIFI_AP_STA);
 
-  homeSpan.setWifiCredentials(ssid,password);
+  // 嘗試連接到之前儲存的 Wi-Fi 網路
+  WiFi.begin();
 
+  Serial.print("Connecting to WiFi");
+  
 
-  ////////////////////////////////
-
-  for (uint8_t i=0;i<8;i++){
-    if (WiFi.status()==WL_CONNECTED){
-      Serial.println("/n");
-      Serial.print("IP地址:");
-      Serial.println(WiFi.localIP()); //读取IP地址
-      Serial.print("WiFi RSSI:");
-      Serial.println(WiFi.RSSI()); //读取WiFi强度
-      gettime.adjust_time();
+  // 等待連接
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+    if(attempts > 10){ // 如果連線失敗超過20次，開啟設定模式
+      setupMode();
       break;
     }
-    Serial.print(".");
-    delay(500);   
   }
 
-  //createWebServer();
+  // 如果連線成功，顯示連接結果
+  if(WiFi.status() == WL_CONNECTED){
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
 
+        ///////////homeSpan
+    homeSpan.begin(Category::Lighting,"陳時鐘");
+    SPAN_ACCESSORY();                                             // create Bridge (note this sketch uses the SPAN_ACCESSORY() macro, introduced in v1.5.1 --- see the HomeSpan API Reference for details on this convenience macro)
+    SPAN_ACCESSORY("MainColor");
+      new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&main_color);
+    SPAN_ACCESSORY("WeekDay");
+      new Matrix_RGB(MATRIX_WIDTH,MATRIX_HEIGHT,&maxBrightness,&week_color);
+    
+    // 連接成功後，關閉設定模式
+    WiFi.softAPdisconnect(true);
 
- 
+  }
+  
+  
+  
+  
 
   
     
 
-  Serial.println("Setup done");
     //i=0;
 }
 
@@ -295,11 +318,19 @@ void setup()
 
 
 void loop()
-{
-
-
+{ 
   
+  // 等待連接
+
+  if(WiFi.status() != WL_CONNECTED){
+    
+    server.handleClient();
+
+    return;
+  }
+
   homeSpan.poll();
+
   matrix.setTextColor(main_color);
   matrix.setBrightness(maxBrightness);  
 
@@ -323,15 +354,10 @@ void loop()
 
   matrix.show();
 
-  //server.handleClient();
-  //sleep(200);
-  
-  
-
-
-
   
 }
+
+
 
 
 
